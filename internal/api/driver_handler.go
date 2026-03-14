@@ -1,21 +1,20 @@
 package api
 
 import (
-	"context"
 	"net/http"
 
+	"github.com/AbhinavJain1234/matchit/internal/service"
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 )
 
-// DriverHandler holds the dependencies needed by driver-related routes.
+// DriverHandler handles HTTP requests for driver-related routes.
+// It knows nothing about Redis or business rules — it only speaks HTTP.
 type DriverHandler struct {
-	rdb *redis.Client
+	driverService *service.DriverService
 }
 
-// NewDriverHandler creates a DriverHandler with the given Redis client.
-func NewDriverHandler(rdb *redis.Client) *DriverHandler {
-	return &DriverHandler{rdb: rdb}
+func NewDriverHandler(driverService *service.DriverService) *DriverHandler {
+	return &DriverHandler{driverService: driverService}
 }
 
 // updateLocationRequest is the expected JSON body for POST /driver/location.
@@ -26,7 +25,6 @@ type updateLocationRequest struct {
 }
 
 // UpdateLocation handles POST /driver/location.
-// It stores the driver position in the Redis GEO index so nearby-search works later.
 func (h *DriverHandler) UpdateLocation(c *gin.Context) {
 	var req updateLocationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -34,60 +32,10 @@ func (h *DriverHandler) UpdateLocation(c *gin.Context) {
 		return
 	}
 
-	err := h.rdb.GeoAdd(context.Background(), "drivers", &redis.GeoLocation{
-		Name:      req.DriverID,
-		Longitude: req.Longitude,
-		Latitude:  req.Latitude,
-	}).Err()
-	if err != nil {
+	if err := h.driverService.UpdateLocation(c.Request.Context(), req.DriverID, req.Latitude, req.Longitude); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to store location"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "location updated"})
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

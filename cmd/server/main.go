@@ -4,18 +4,26 @@ import (
 	"net/http"
 
 	"github.com/AbhinavJain1234/matchit/internal/api"
+	"github.com/AbhinavJain1234/matchit/internal/repository"
+	"github.com/AbhinavJain1234/matchit/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 )
 
 func main() {
-	// --- dependencies ---
+	// --- infrastructure ---
 	rdb := redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",
 	})
 
-	// --- handlers ---
-	driverHandler := api.NewDriverHandler(rdb)
+	// --- repository layer ---
+	locationRepo := repository.NewLocationRepository(rdb)
+
+	// --- service layer ---
+	driverService := service.NewDriverService(locationRepo)
+
+	// --- handler layer ---
+	driverHandler := api.NewDriverHandler(driverService)
 
 	// --- router ---
 	r := gin.Default()
