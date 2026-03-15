@@ -30,11 +30,11 @@ type CreateRideResponse struct {
 
 // RideService contains ride-related business logic.
 type RideService struct {
-	rideRepo      *repository.RideRepository
+	rideRepo      repository.RideRepository
 	driverService *DriverService
 }
 
-func NewRideService(rideRepo *repository.RideRepository, driverService *DriverService) *RideService {
+func NewRideService(rideRepo repository.RideRepository, driverService *DriverService) *RideService {
 	return &RideService{rideRepo: rideRepo, driverService: driverService}
 }
 
@@ -53,7 +53,7 @@ func (s *RideService) CreateRideRequest(ctx context.Context, req CreateRideReque
 		Status:    models.RideStatusRequested,
 	}
 
-	if err := s.rideRepo.Save(ride); err != nil {
+	if err := s.rideRepo.Save(ctx, ride); err != nil {
 		return CreateRideResponse{}, err
 	}
 
@@ -71,7 +71,7 @@ func (s *RideService) CreateRideRequest(ctx context.Context, req CreateRideReque
 // GetRideByID fetches a ride by its ID.
 // Returns ErrRideNotFound if the ride does not exist.
 func (s *RideService) GetRideByID(ctx context.Context, rideID string) (models.Ride, error) {
-	return s.rideRepo.GetByID(rideID)
+	return s.rideRepo.GetByID(ctx, rideID)
 }
 
 // AcceptRide attempts to assign a driver to a ride.
@@ -80,5 +80,5 @@ func (s *RideService) AcceptRide(ctx context.Context, rideID, driverID string) (
 	if rideID == "" || driverID == "" {
 		return models.Ride{}, errors.New("ride_id and driver_id are required")
 	}
-	return s.rideRepo.AssignDriver(rideID, driverID)
+	return s.rideRepo.AssignDriver(ctx, rideID, driverID)
 }

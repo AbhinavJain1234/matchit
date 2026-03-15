@@ -1,4 +1,5 @@
 package models
+import "time"
 
 // Ride status constants represent the lifecycle of a ride.
 const (
@@ -19,4 +20,5 @@ type Ride struct {
 	DestLat   float64 `json:"dest_lat"`
 	DestLon   float64 `json:"dest_lon"`
 	Status    string  `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
 }
