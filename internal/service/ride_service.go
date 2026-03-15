@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	ErrInvalidRiderID = errors.New("rider_id is required")
-	ErrRideNotFound   = repository.ErrRideNotFound
+	ErrInvalidRiderID  = errors.New("rider_id is required")
+	ErrRideNotFound    = repository.ErrRideNotFound
+	ErrAlreadyAssigned = repository.ErrAlreadyAssigned
 )
 
 type CreateRideRequest struct {
@@ -71,4 +72,13 @@ func (s *RideService) CreateRideRequest(ctx context.Context, req CreateRideReque
 // Returns ErrRideNotFound if the ride does not exist.
 func (s *RideService) GetRideByID(ctx context.Context, rideID string) (models.Ride, error) {
 	return s.rideRepo.GetByID(rideID)
+}
+
+// AcceptRide attempts to assign a driver to a ride.
+// Returns ErrAlreadyAssigned if another driver accepted first (race condition handled).
+func (s *RideService) AcceptRide(ctx context.Context, rideID, driverID string) (models.Ride, error) {
+	if rideID == "" || driverID == "" {
+		return models.Ride{}, errors.New("ride_id and driver_id are required")
+	}
+	return s.rideRepo.AssignDriver(rideID, driverID)
 }

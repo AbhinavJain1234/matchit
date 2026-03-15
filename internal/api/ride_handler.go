@@ -78,3 +78,38 @@ func (h *RideHandler) GetRideStatus(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"ride": ride})
 }
+
+type acceptRideRequest struct {
+	RideID   string `json:"ride_id" binding:"required"`
+	DriverID string `json:"driver_id" binding:"required"`
+}
+
+// AcceptRide handles POST /ride/accept.
+// A driver calls this to claim a ride. Only the first driver to call succeeds.
+// If two drivers call simultaneously, only one gets the ride — the other receives 409 Conflict.
+func (h *RideHandler) AcceptRide(c *gin.Context) {
+	var req acceptRideRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	ride, err := h.rideService.AcceptRide(c.Request.Context(), req.RideID, req.DriverID)
+	if err != nil {
+		switch err {
+		case service.ErrRideNotFound:
+			c.JSON(http.StatusNotFound, gin.H{"error": "ride not found"})
+		case service.ErrAlreadyAssigned:
+			// 409 Conflict — another driver already accepted this ride
+			c.JSON(http.StatusConflict, gin.H{"error": "ride already accepted by another driver"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to accept ride"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "ride accepted",
+		"ride":    ride,
+	})
+}
