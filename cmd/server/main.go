@@ -24,6 +24,7 @@ func main() {
 
 	// --- handler layer ---
 	driverHandler := api.NewDriverHandler(driverService)
+	rideHandler := api.NewRideHandler(driverService)
 
 	// --- router ---
 	r := gin.Default()
@@ -37,6 +38,7 @@ func main() {
 
 	r.POST("/driver/location", driverHandler.UpdateLocation)
 	r.GET("/drivers/nearby", driverHandler.GetNearbyDrivers)
+	r.POST("/ride/request", rideHandler.CreateRideRequest)
 
 	r.Run(":8080")
 }
