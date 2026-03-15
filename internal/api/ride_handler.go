@@ -3,51 +3,58 @@ package api
 import (
 	"net/http"
 
-	"github.com/google/uuid"
-	"github.com/AbhinavJain1234/matchit/internal/models"
 	"github.com/AbhinavJain1234/matchit/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 // RideHandler owns ride-related HTTP handlers.
-type RideHandler struct{
-	driverService *service.DriverService
+type RideHandler struct {
+	rideService *service.RideService
 }
 
-func NewRideHandler(driverService *service.DriverService) *RideHandler {
+func NewRideHandler(rideService *service.RideService) *RideHandler {
 	return &RideHandler{
-		driverService: driverService,
+		rideService: rideService,
 	}
+}
+
+type createRideRequest struct {
+	RiderID   string  `json:"rider_id" binding:"required"`
+	PickupLat float64 `json:"pickup_lat" binding:"required"`
+	PickupLon float64 `json:"pickup_lon" binding:"required"`
+	DestLat   float64 `json:"dest_lat" binding:"required"`
+	DestLon   float64 `json:"dest_lon" binding:"required"`
 }
 
 // CreateRideRequest currently returns a static/mock ride response.
 // This endpoint is intentionally simple and will be replaced with real persistence and matching logic.
 func (h *RideHandler) CreateRideRequest(c *gin.Context) {
-	var req models.Ride
+	var req createRideRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
-	if req.RiderID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "rider_id is required"})
+	result, err := h.rideService.CreateRideRequest(c.Request.Context(), service.CreateRideRequest{
+		RiderID:   req.RiderID,
+		PickupLat: req.PickupLat,
+		PickupLon: req.PickupLon,
+		DestLat:   req.DestLat,
+		DestLon:   req.DestLon,
+	})
+	if err != nil {
+		if err == service.ErrInvalidRiderID {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create ride"})
 		return
 	}
 
-	req.ID = uuid.New().String()
-	req.Status = models.RideStatusRequested
-
-	drivers, err := h.driverService.FindNearbyDrivers(c.Request.Context(), req.PickupLat, req.PickupLon, 2, 20)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to query nearby drivers"})
-			return
-	}
-
-
 	c.JSON(http.StatusOK, gin.H{
 		"message": "static ride response",
-		"ride": req,
-		"count":   len(drivers),
-		"drivers": drivers,
+		"ride":    result.Ride,
+		"count":   len(result.Drivers),
+		"drivers": result.Drivers,
 	})
 }

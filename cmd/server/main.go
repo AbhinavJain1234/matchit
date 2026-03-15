@@ -18,13 +18,15 @@ func main() {
 
 	// --- repository layer ---
 	locationRepo := repository.NewLocationRepository(rdb)
+	rideRepo := repository.NewRideRepository()
 
 	// --- service layer ---
 	driverService := service.NewDriverService(locationRepo)
+	rideService := service.NewRideService(rideRepo, driverService)
 
 	// --- handler layer ---
 	driverHandler := api.NewDriverHandler(driverService)
-	rideHandler := api.NewRideHandler(driverService)
+	rideHandler := api.NewRideHandler(rideService)
 
 	// --- router ---
 	r := gin.Default()
