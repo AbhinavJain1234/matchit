@@ -41,6 +41,7 @@ func main() {
 	r.POST("/driver/location", driverHandler.UpdateLocation)
 	r.GET("/drivers/nearby", driverHandler.GetNearbyDrivers)
 	r.POST("/ride/request", rideHandler.CreateRideRequest)
+	r.GET("/ride/:id/status", rideHandler.GetRideStatus)
 
 	r.Run(":8080")
 }

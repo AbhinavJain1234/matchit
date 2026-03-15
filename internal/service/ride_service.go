@@ -9,7 +9,10 @@ import (
 	"github.com/google/uuid"
 )
 
-var ErrInvalidRiderID = errors.New("rider_id is required")
+var (
+	ErrInvalidRiderID = errors.New("rider_id is required")
+	ErrRideNotFound   = repository.ErrRideNotFound
+)
 
 type CreateRideRequest struct {
 	RiderID   string
@@ -62,4 +65,10 @@ func (s *RideService) CreateRideRequest(ctx context.Context, req CreateRideReque
 		Ride:    ride,
 		Drivers: drivers,
 	}, nil
+}
+
+// GetRideByID fetches a ride by its ID.
+// Returns ErrRideNotFound if the ride does not exist.
+func (s *RideService) GetRideByID(ctx context.Context, rideID string) (models.Ride, error) {
+	return s.rideRepo.GetByID(rideID)
 }

@@ -26,8 +26,7 @@ type createRideRequest struct {
 	DestLon   float64 `json:"dest_lon" binding:"required"`
 }
 
-// CreateRideRequest currently returns a static/mock ride response.
-// This endpoint is intentionally simple and will be replaced with real persistence and matching logic.
+// CreateRideRequest handles POST /ride/request.
 func (h *RideHandler) CreateRideRequest(c *gin.Context) {
 	var req createRideRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -51,10 +50,31 @@ func (h *RideHandler) CreateRideRequest(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "static ride response",
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "ride created",
 		"ride":    result.Ride,
-		"count":   len(result.Drivers),
 		"drivers": result.Drivers,
 	})
+}
+
+// GetRideStatus handles GET /ride/:id/status
+// Returns the current state of a ride so the rider can poll it.
+func (h *RideHandler) GetRideStatus(c *gin.Context) {
+	rideID := c.Param("id")
+	if rideID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ride id is required"})
+		return
+	}
+
+	ride, err := h.rideService.GetRideByID(c.Request.Context(), rideID)
+	if err != nil {
+		if err == service.ErrRideNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ride not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch ride"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ride": ride})
 }
