@@ -36,6 +36,7 @@ func main() {
 	})
 
 	r.POST("/driver/location", driverHandler.UpdateLocation)
+	r.GET("/drivers/nearby", driverHandler.GetNearbyDrivers)
 
 	r.Run(":8080")
 }

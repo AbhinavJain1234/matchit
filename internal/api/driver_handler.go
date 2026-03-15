@@ -1,7 +1,8 @@
 package api
 
-import (
+import ( 
 	"net/http"
+	"strconv"
 
 	"github.com/AbhinavJain1234/matchit/internal/service"
 	"github.com/gin-gonic/gin"
@@ -39,3 +40,48 @@ func (h *DriverHandler) UpdateLocation(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"status": "location updated"})
 }
+
+// GetNearbyDrivers handles GET /drivers/nearby?lat=..&lon=..&radius_km=..&limit=..
+	func (h *DriverHandler) GetNearbyDrivers(c *gin.Context) {
+		lat, err := strconv.ParseFloat(c.Query("lat"), 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lat"})
+			return
+		}
+
+		lon, err := strconv.ParseFloat(c.Query("lon"), 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lon"})
+			return
+		}
+
+		radiusKM := 2.0
+		if c.Query("radius_km") != "" {
+			radiusKM, err = strconv.ParseFloat(c.Query("radius_km"), 64)
+			if err != nil || radiusKM <= 0 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid radius_km"})
+				return
+			}
+		}
+
+		limit := 20
+		if c.Query("limit") != "" {
+			parsed, parseErr := strconv.Atoi(c.Query("limit"))
+			if parseErr != nil || parsed <= 0 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit"})
+				return
+			}
+			limit = parsed
+		}
+
+		drivers, err := h.driverService.FindNearbyDrivers(c.Request.Context(), lat, lon, radiusKM, limit)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to query nearby drivers"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"count":   len(drivers),
+			"drivers": drivers,
+		})
+	}

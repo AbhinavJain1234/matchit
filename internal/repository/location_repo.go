@@ -24,3 +24,19 @@ func (r *LocationRepository) SaveDriverLocation(ctx context.Context, driverID st
 		Latitude:  lat,
 	}).Err()
 }
+
+// FindNearbyDrivers returns drivers near a point sorted by ascending distance.
+func (r *LocationRepository) FindNearbyDrivers(ctx context.Context, lat, lon, radiusKM float64, count int) ([]redis.GeoLocation, error) {
+	return r.rdb.GeoSearchLocation(ctx, "drivers", &redis.GeoSearchLocationQuery{
+		GeoSearchQuery: redis.GeoSearchQuery{
+			Longitude: lon,
+			Latitude: lat,
+			Radius: radiusKM,
+			RadiusUnit: "km",
+			Sort: "ASC",
+			Count: count,
+		},
+		WithCoord: true,
+		WithDist:  true,
+	}).Result()
+}
