@@ -13,6 +13,7 @@ var (
 	ErrInvalidRiderID  = errors.New("rider_id is required")
 	ErrRideNotFound    = repository.ErrRideNotFound
 	ErrAlreadyAssigned = repository.ErrAlreadyAssigned
+	ErrActiveRideExists   = repository.ErrActiveRideExists
 )
 
 type CreateRideRequest struct {
@@ -41,6 +42,12 @@ func NewRideService(rideRepo repository.RideRepository, driverService *DriverSer
 func (s *RideService) CreateRideRequest(ctx context.Context, req CreateRideRequest) (CreateRideResponse, error) {
 	if req.RiderID == "" {
 		return CreateRideResponse{}, ErrInvalidRiderID
+	}
+
+	if hasActiveRide, err := s.rideRepo.HasActiveRide(ctx, req.RiderID); err != nil {
+		return CreateRideResponse{}, err
+	} else if hasActiveRide {
+		return CreateRideResponse{}, repository.ErrActiveRideExists
 	}
 
 	ride := models.Ride{

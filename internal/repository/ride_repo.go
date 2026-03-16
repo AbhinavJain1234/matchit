@@ -11,6 +11,7 @@ import (
 var (
 	ErrRideNotFound    = errors.New("ride not found")
 	ErrAlreadyAssigned = errors.New("ride already assigned to another driver")
+	ErrActiveRideExists   = errors.New("rider already has an active ride")
 )
 
 // RideRepository defines the data access contract for rides.
@@ -19,6 +20,7 @@ type RideRepository interface {
 	Save(ctx context.Context, ride models.Ride) error
 	GetByID(ctx context.Context, id string) (models.Ride, error)
 	AssignDriver(ctx context.Context, rideID, driverID string) (models.Ride, error)
+	HasActiveRide(ctx context.Context, riderID string) (bool, error)
 }
 
 // InMemoryRideRepository is a thread-safe in-memory implementation used when no database is configured.
@@ -64,4 +66,15 @@ func (r *InMemoryRideRepository) AssignDriver(_ context.Context, rideID, driverI
 	ride.Status = models.RideStatusDriverAssigned
 	r.rides[rideID] = ride
 	return ride, nil
+}
+
+func (r *InMemoryRideRepository) HasActiveRide(_ context.Context, riderID string) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, ride := range r.rides {
+		if ride.RiderID == riderID && (ride.Status == models.RideStatusDriverAssigned || ride.Status == models.RideStatusRequested || ride.Status == models.RideStatusInProgress) {
+			return true, nil
+		}
+	}
+	return false, nil
 }

@@ -42,9 +42,13 @@ func (h *RideHandler) CreateRideRequest(c *gin.Context) {
 		DestLon:   req.DestLon,
 	})
 	if err != nil {
-		if err == service.ErrInvalidRiderID {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
+		switch err {
+			case service.ErrInvalidRiderID:
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			case service.ErrActiveRideExists:
+				c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+				return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create ride"})
 		return

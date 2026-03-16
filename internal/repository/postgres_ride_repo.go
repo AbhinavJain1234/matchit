@@ -8,6 +8,7 @@ import (
 	"github.com/AbhinavJain1234/matchit/internal/models"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // PostgresRideRepository implements RideRepository using PostgreSQL.
@@ -28,12 +29,21 @@ func (r *PostgresRideRepository) Save(ctx context.Context, ride models.Ride) err
 		ride.DestLat, ride.DestLon,
 		ride.Status, time.Now(),
 	)
-	return err
+	 if err != nil {
+        var pgErr *pgconn.PgError
+        if errors.As(err, &pgErr) &&
+            pgErr.Code == "23505" &&
+            pgErr.ConstraintName == "uq_rides_active_per_rider" {
+            return ErrActiveRideExists
+        }
+        return err
+    }
+    return nil
 }
 
 func (r *PostgresRideRepository) GetByID(ctx context.Context, id string) (models.Ride, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT id, rider_id, COALESCE(driver_id, ''), pickup_lat, pickup_lon, dest_lat, dest_lon, status
+		`SELECT id, rider_id, COALESCE(driver_id, ''), pickup_lat, pickup_lon, dest_lat, dest_lon, status, created_at
 		 FROM rides WHERE id = $1`,
 		id,
 	)
@@ -42,7 +52,7 @@ func (r *PostgresRideRepository) GetByID(ctx context.Context, id string) (models
 		&ride.ID, &ride.RiderID, &ride.DriverID,
 		&ride.PickupLat, &ride.PickupLon,
 		&ride.DestLat, &ride.DestLon,
-		&ride.Status,
+		&ride.Status, &ride.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return models.Ride{}, ErrRideNotFound
@@ -57,7 +67,7 @@ func (r *PostgresRideRepository) AssignDriver(ctx context.Context, rideID, drive
 		`UPDATE rides
 		 SET driver_id = $1, status = $2
 		 WHERE id = $3 AND driver_id IS NULL
-		 RETURNING id, rider_id, driver_id, pickup_lat, pickup_lon, dest_lat, dest_lon, status`,
+		 RETURNING id, rider_id, driver_id, pickup_lat, pickup_lon, dest_lat, dest_lon, status, created_at`,
 		driverID, models.RideStatusDriverAssigned, rideID,
 	)
 	var ride models.Ride
@@ -65,7 +75,7 @@ func (r *PostgresRideRepository) AssignDriver(ctx context.Context, rideID, drive
 		&ride.ID, &ride.RiderID, &ride.DriverID,
 		&ride.PickupLat, &ride.PickupLon,
 		&ride.DestLat, &ride.DestLon,
-		&ride.Status,
+		&ride.Status, &ride.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Row wasn't updated — check whether ride exists to distinguish the two error cases.
@@ -84,5 +94,20 @@ func (r *PostgresRideRepository) AssignDriver(ctx context.Context, rideID, drive
 func (r *PostgresRideRepository) rideExists(ctx context.Context, rideID string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM rides WHERE id = $1)`, rideID).Scan(&exists)
+	return exists, err
+}
+
+func (r *PostgresRideRepository) HasActiveRide(ctx context.Context, riderID string) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(
+			SELECT 1 FROM rides
+			WHERE rider_id = $1 AND status IN ($2, $3, $4)
+		)`,
+		riderID,
+		models.RideStatusRequested,
+		models.RideStatusDriverAssigned,
+		models.RideStatusInProgress,
+	).Scan(&exists)
 	return exists, err
 }

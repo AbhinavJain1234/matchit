@@ -31,3 +31,4 @@ CREATE TABLE IF NOT EXISTS rides (
 
 -- Index for looking up active rides by rider (used for duplicate prevention in Stage 5a)
 CREATE INDEX IF NOT EXISTS idx_rides_rider_status ON rides (rider_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rides_active_per_rider ON rides (rider_id) WHERE status IN ('REQUESTED', 'DRIVER_ASSIGNED', 'IN_PROGRESS');
