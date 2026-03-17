@@ -68,9 +68,9 @@ func (r *PostgresRideRepository) AssignDriver(ctx context.Context, rideID, drive
 	row := r.pool.QueryRow(ctx,
 		`UPDATE rides
 		 SET driver_id = $1, status = $2
-		 WHERE id = $3 AND driver_id IS NULL
+		 WHERE id = $3 AND driver_id IS NULL AND status = $4
 		 RETURNING id, rider_id, driver_id, pickup_lat, pickup_lon, dest_lat, dest_lon, status, created_at`,
-		driverID, models.RideStatusDriverAssigned, rideID,
+		driverID, models.RideStatusDriverAssigned, rideID, models.RideStatusRequested,		
 	)
 	var ride models.Ride
 	err := row.Scan(
