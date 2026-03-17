@@ -49,6 +49,12 @@ func (h *RideHandler) CreateRideRequest(c *gin.Context) {
 			case service.ErrActiveRideExists:
 				c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 				return
+			case service.ErrNoDriversAvailable:
+				c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+				return
+			case service.ErrRideCancelled:
+				c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+				return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create ride"})
 		return
@@ -57,7 +63,6 @@ func (h *RideHandler) CreateRideRequest(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "ride created",
 		"ride":    result.Ride,
-		"drivers": result.Drivers,
 	})
 }
 

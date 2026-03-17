@@ -7,8 +7,8 @@ import (
 
 	"github.com/AbhinavJain1234/matchit/internal/models"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // PostgresRideRepository implements RideRepository using PostgreSQL.
@@ -63,6 +63,8 @@ func (r *PostgresRideRepository) GetByID(ctx context.Context, id string) (models
 // AssignDriver uses a single atomic UPDATE with WHERE driver_id IS NULL.
 // If the UPDATE matches zero rows, either the ride doesn't exist or another driver already claimed it.
 func (r *PostgresRideRepository) AssignDriver(ctx context.Context, rideID, driverID string) (models.Ride, error) {
+	// TODO: Intentionally deferred for now.
+	// Add status guard in SQL (e.g. AND status = 'REQUESTED') before assignment.
 	row := r.pool.QueryRow(ctx,
 		`UPDATE rides
 		 SET driver_id = $1, status = $2
@@ -110,4 +112,8 @@ func (r *PostgresRideRepository) HasActiveRide(ctx context.Context, riderID stri
 		models.RideStatusInProgress,
 	).Scan(&exists)
 	return exists, err
+}
+
+func (r *PostgresRideRepository) IsRideAvailable(ctx context.Context, rideID string) (bool, error) {
+	return true, nil
 }

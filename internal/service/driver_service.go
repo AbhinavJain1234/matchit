@@ -42,3 +42,8 @@ func (s *DriverService) FindNearbyDrivers(ctx context.Context, lat, lon, radiusK
 
 	return drivers, nil
 }
+
+//fix this later
+func (s *DriverService) ChangeDriverStatus(ctx context.Context, driverID string, status string) error {
+	return ErrRideNotFound
+}

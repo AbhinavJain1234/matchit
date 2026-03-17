@@ -9,9 +9,9 @@ import (
 )
 
 var (
-	ErrRideNotFound    = errors.New("ride not found")
-	ErrAlreadyAssigned = errors.New("ride already assigned to another driver")
-	ErrActiveRideExists   = errors.New("rider already has an active ride")
+	ErrRideNotFound     = errors.New("ride not found")
+	ErrAlreadyAssigned  = errors.New("ride already assigned to another driver")
+	ErrActiveRideExists = errors.New("rider already has an active ride")
 )
 
 // RideRepository defines the data access contract for rides.
@@ -21,6 +21,11 @@ type RideRepository interface {
 	GetByID(ctx context.Context, id string) (models.Ride, error)
 	AssignDriver(ctx context.Context, rideID, driverID string) (models.Ride, error)
 	HasActiveRide(ctx context.Context, riderID string) (bool, error)
+	IsRideAvailable(ctx context.Context, rideID string) (bool, error)
+}
+
+func (r *InMemoryRideRepository) IsRideAvailable(ctx context.Context, rideID string) (bool, error) {
+	return true, nil
 }
 
 // InMemoryRideRepository is a thread-safe in-memory implementation used when no database is configured.
@@ -59,6 +64,8 @@ func (r *InMemoryRideRepository) AssignDriver(_ context.Context, rideID, driverI
 	if !ok {
 		return models.Ride{}, ErrRideNotFound
 	}
+	// TODO: Intentionally deferred for now.
+	// Add status validation so assignment is allowed only when ride.Status == REQUESTED.
 	if ride.DriverID != "" {
 		return models.Ride{}, ErrAlreadyAssigned
 	}
