@@ -77,6 +77,11 @@ func (r *InMemoryRideRepository) AssignDriver(_ context.Context, rideID, driverI
 	if ride.DriverID != "" {
 		return models.Ride{}, ErrAlreadyAssigned
 	}
+
+	if ride.Status != models.RideStatusRequested {
+		return models.Ride{}, errors.New("ride is not in a state to be accepted")
+	}
+	
 	ride.DriverID = driverID
 	ride.Status = models.RideStatusDriverAssigned
 	r.rides[rideID] = ride

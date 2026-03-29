@@ -12,10 +12,14 @@ type RideHandler struct {
 	rideService *service.RideService
 }
 
-func NewRideHandler(rideService *service.RideService) *RideHandler {
-	return &RideHandler{
-		rideService: rideService,
-	}
+type acceptRideRequest struct {
+	RideID   string `json:"ride_id" binding:"required"`
+	DriverID string `json:"driver_id" binding:"required"`
+}
+
+type cancelRideRequest struct {
+	RideID  string `json:"ride_id" binding:"required"`
+	RiderID string `json:"rider_id" binding:"required"`
 }
 
 type createRideRequest struct {
@@ -25,6 +29,13 @@ type createRideRequest struct {
 	DestLat   float64 `json:"dest_lat" binding:"required"`
 	DestLon   float64 `json:"dest_lon" binding:"required"`
 }
+
+func NewRideHandler(rideService *service.RideService) *RideHandler {
+	return &RideHandler{
+		rideService: rideService,
+	}
+}
+
 
 // CreateRideRequest handles POST /ride/request.
 func (h *RideHandler) CreateRideRequest(c *gin.Context) {
@@ -47,12 +58,6 @@ func (h *RideHandler) CreateRideRequest(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			case service.ErrActiveRideExists:
-				c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
-				return
-			case service.ErrNoDriversAvailable:
-				c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
-				return
-			case service.ErrRideCancelled:
 				c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 				return
 		}
@@ -88,15 +93,6 @@ func (h *RideHandler) GetRideStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ride": ride})
 }
 
-type acceptRideRequest struct {
-	RideID   string `json:"ride_id" binding:"required"`
-	DriverID string `json:"driver_id" binding:"required"`
-}
-
-type cancelRideRequest struct {
-	RideID  string `json:"ride_id" binding:"required"`
-	RiderID string `json:"rider_id" binding:"required"`
-}
 
 // AcceptRide handles POST /ride/accept.
 // A driver calls this to claim a ride. Only the first driver to call succeeds.

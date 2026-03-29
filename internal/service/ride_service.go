@@ -126,6 +126,11 @@ func (s *RideService) FindNearbyDrivers(ctx context.Context, riderID, rideID str
 			}
 		}
 	}
+	
+	err := s.CancelRideRequest(ctx, rideID, riderID)
+	if err != nil {
+		return err
+	}
 
 	return ErrNoDriversAvailable
 }
