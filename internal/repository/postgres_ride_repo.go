@@ -115,7 +115,15 @@ func (r *PostgresRideRepository) HasActiveRide(ctx context.Context, riderID stri
 }
 
 func (r *PostgresRideRepository) IsRideAvailable(ctx context.Context, rideID string) (bool, error) {
-	return true, nil
+	err:= r.pool.QueryRow(ctx,
+		`SELECT driver_id FROM rides WHERE id = $1 AND status = $2`,
+		rideID,
+		models.RideStatusRequested,
+	).Scan(new(string))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, ErrRideNotFound
+	}
+	return err == nil, err
 }
 
 func (r *PostgresRideRepository) CancelRideRequest(ctx context.Context, rideID, riderID string) ( error) {

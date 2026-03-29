@@ -27,7 +27,13 @@ type RideRepository interface {
 }
 
 func (r *InMemoryRideRepository) IsRideAvailable(ctx context.Context, rideID string) (bool, error) {
-	return true, nil
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	ride, ok := r.rides[rideID]
+	if !ok {
+		return false, ErrRideNotFound
+	}
+	return ride.DriverID == "" && ride.Status == models.RideStatusRequested, nil
 }
 
 // InMemoryRideRepository is a thread-safe in-memory implementation used when no database is configured.
