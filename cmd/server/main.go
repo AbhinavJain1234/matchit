@@ -70,6 +70,7 @@ func main() {
 	r.POST("/ride/request", rideHandler.CreateRideRequest)
 	r.GET("/ride/:id/status", rideHandler.GetRideStatus)
 	r.POST("/ride/accept", rideHandler.AcceptRide)
+	r.POST("/ride/cancelRequest", rideHandler.CancelRideRequest)
 
 	r.Run(":8080")
 }

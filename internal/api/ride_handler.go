@@ -93,6 +93,11 @@ type acceptRideRequest struct {
 	DriverID string `json:"driver_id" binding:"required"`
 }
 
+type cancelRideRequest struct {
+	RideID  string `json:"ride_id" binding:"required"`
+	RiderID string `json:"rider_id" binding:"required"`
+}
+
 // AcceptRide handles POST /ride/accept.
 // A driver calls this to claim a ride. Only the first driver to call succeeds.
 // If two drivers call simultaneously, only one gets the ride — the other receives 409 Conflict.
@@ -112,7 +117,7 @@ func (h *RideHandler) AcceptRide(c *gin.Context) {
 			// 409 Conflict — another driver already accepted this ride
 			c.JSON(http.StatusConflict, gin.H{"error": "ride already accepted by another driver"})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to accept ride"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "	failed to accept ride"})
 		}
 		return
 	}
@@ -122,3 +127,29 @@ func (h *RideHandler) AcceptRide(c *gin.Context) {
 		"ride":    ride,
 	})
 }
+
+func (h *RideHandler) CancelRideRequest(c *gin.Context) {
+	var req cancelRideRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	err := h.rideService.CancelRideRequest(c.Request.Context(), req.RideID, req.RiderID)
+	if err != nil {
+		switch err {
+		case service.ErrRideNotFound:
+			c.JSON(http.StatusNotFound, gin.H{"error": "ride not found"})
+		case service.ErrRideNotCancelable:
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cancel ride"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "ride cancelled",
+	})
+}
+

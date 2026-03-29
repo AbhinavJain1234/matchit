@@ -17,6 +17,7 @@ var (
 	ErrRideNotFound    = repository.ErrRideNotFound
 	ErrAlreadyAssigned = repository.ErrAlreadyAssigned
 	ErrActiveRideExists = repository.ErrActiveRideExists
+	ErrRideNotCancelable = repository.ErrRideNotCancelable
 	ErrNoDriversAvailable = errors.New("no drivers available, try after sometime")
 	ErrRideCancelled   = errors.New("ride is cancelled")
 )
@@ -129,13 +130,7 @@ func (s *RideService) FindNearbyDrivers(ctx context.Context, riderID, rideID str
 	return ErrNoDriversAvailable
 }
 
-func (s *RideService) notifyFromRadius(
-	ctx context.Context,
-	lat, lon, radiusKM float64,
-	notifyBatchSize int,
-	maxFetchFromDB int,
-	triedDriverIDs map[string]struct{},
-) (int, error) {
+func (s *RideService) notifyFromRadius(ctx context.Context, lat, lon, radiusKM float64, notifyBatchSize int, maxFetchFromDB int, triedDriverIDs map[string]struct{}) (int, error) {
 	nearbyDrivers, err := s.driverService.FindNearbyDrivers(ctx, lat, lon, radiusKM, maxFetchFromDB)
 	if err != nil {
 		return 0, errors.New("unable to fetch drivers")
@@ -175,4 +170,20 @@ func (s *RideService) AcceptRide(ctx context.Context, rideID, driverID string) (
 		return models.Ride{}, errors.New("ride_id and driver_id are required")
 	}
 	return s.rideRepo.AssignDriver(ctx, rideID, driverID)
+}
+
+func (s *RideService) CancelRideRequest(ctx context.Context, rideID, riderID string) ( error) {
+	if rideID == "" || riderID == "" {
+		return errors.New("ride_id and rider_id are required")
+	}
+
+	hasActiveRide, err := s.rideRepo.HasActiveRide(ctx, riderID)
+	if err != nil {
+		return  err
+	}
+	if !hasActiveRide {
+		return ErrRideNotCancelable
+	}
+
+	return s.rideRepo.CancelRideRequest(ctx, rideID, riderID)
 }

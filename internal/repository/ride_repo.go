@@ -12,6 +12,7 @@ var (
 	ErrRideNotFound     = errors.New("ride not found")
 	ErrAlreadyAssigned  = errors.New("ride already assigned to another driver")
 	ErrActiveRideExists = errors.New("rider already has an active ride")
+	ErrRideNotCancelable = errors.New("ride cannot be cancelled")
 )
 
 // RideRepository defines the data access contract for rides.
@@ -20,6 +21,7 @@ type RideRepository interface {
 	Save(ctx context.Context, ride models.Ride) error
 	GetByID(ctx context.Context, id string) (models.Ride, error)
 	AssignDriver(ctx context.Context, rideID, driverID string) (models.Ride, error)
+	CancelRideRequest(ctx context.Context, rideID, riderID string) (error)
 	HasActiveRide(ctx context.Context, riderID string) (bool, error)
 	IsRideAvailable(ctx context.Context, rideID string) (bool, error)
 }
@@ -84,4 +86,22 @@ func (r *InMemoryRideRepository) HasActiveRide(_ context.Context, riderID string
 		}
 	}
 	return false, nil
+}
+
+func (r *InMemoryRideRepository) CancelRideRequest(_ context.Context, rideID, riderID string) (error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	ride, ok := r.rides[rideID]
+	if !ok {
+		return ErrRideNotFound
+	}
+	if ride.RiderID != riderID {
+		return errors.New("rider_id does not match the ride's rider")
+	}
+	if ride.Status != models.RideStatusRequested {
+		return ErrRideNotCancelable
+	}
+	ride.Status = models.RideStatusCancelled
+	r.rides[rideID] = ride
+	return nil
 }
