@@ -115,22 +115,37 @@ func (r *PostgresRideRepository) HasActiveRide(ctx context.Context, riderID stri
 }
 
 func (r *PostgresRideRepository) IsRideAvailable(ctx context.Context, rideID string) (bool, error) {
-	err:= r.pool.QueryRow(ctx,
-		`SELECT driver_id FROM rides WHERE id = $1 AND status = $2`,
+	var isAvailable bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(
+			SELECT 1 FROM rides
+			WHERE id = $1 AND status = $2 AND driver_id IS NULL
+		)`,
 		rideID,
 		models.RideStatusRequested,
-	).Scan(new(string))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return false, ErrRideNotFound
+	).Scan(&isAvailable)
+	if err != nil {
+		return false, err
 	}
-	return err == nil, err
+
+	if !isAvailable {
+		exists, checkErr := r.rideExists(ctx, rideID)
+		if checkErr != nil {
+			return false, checkErr
+		}
+		if !exists {
+			return false, ErrRideNotFound
+		}
+	}
+
+	return isAvailable, nil
 }
 
 func (r *PostgresRideRepository) CancelRideRequest(ctx context.Context, rideID, riderID string) ( error) {
 	err := r.pool.QueryRow(ctx,
 		`UPDATE rides
 		 SET status = $1
-		 WHERE id = $2 AND rider_id = $3 AND status IN $4
+		 WHERE id = $2 AND rider_id = $3 AND status = $4
 		 RETURNING id`,
 		models.RideStatusCancelled, rideID, riderID, models.RideStatusRequested,
 	).Scan(new(string))
