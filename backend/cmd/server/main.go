@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	_ = godotenv.Load()
+	_ = godotenv.Load("../../.env")
 
 	// --- infrastructure ---
 	redisAddr := os.Getenv("REDIS_ADDR")
@@ -37,7 +37,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("cannot connect to postgres: %v", err)
 		}
-		if err := ensureSchema(context.Background(), pool, "configs/schema.sql"); err != nil {
+		if err := ensureSchema(context.Background(), pool, "../../configs/schema.sql"); err != nil {
 			log.Fatalf("failed to apply schema: %v", err)
 		}
 		rideRepo = repository.NewPostgresRideRepository(pool)

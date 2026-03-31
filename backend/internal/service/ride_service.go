@@ -82,15 +82,20 @@ func (s *RideService) findNearbyDriversAsync(ride models.Ride) {
 	}
 }
 
-func (s *RideService) FindNearbyDrivers(ctx context.Context, riderID, rideID string, lat, lon float64) error {
+func (s *RideService) FindNearbyDrivers(ctx context.Context, riderID, rideID string, lat, lon float64) error {	
+	log.Printf("[Ride %s] Starting driver search at (%.4f, %.4f)", rideID, lat, lon)
+
 	const notifyBatchSize = 10
 	const maxFetchFromDB = 1000
 	const maxRounds = 5
 	const roundTimeout = 60 * time.Second
 
 	triedDriverIDs := make(map[string]struct{})
+	previousRoundNotified := 0
 
 	for round := 0; round < maxRounds; round++ {
+		log.Printf("[Round %d] Starting search for ride %s", round, rideID)
+		
 		isAvailable, err := s.rideRepo.IsRideAvailable(ctx, rideID)
 		if err != nil {
 			return err
@@ -99,26 +104,56 @@ func (s *RideService) FindNearbyDrivers(ctx context.Context, riderID, rideID str
 			return ErrRideCancelled
 		}
 
-		notifiedThisRound, err := s.notifyFromRadius(ctx, lat, lon, 2, notifyBatchSize, maxFetchFromDB, triedDriverIDs)
-		if err != nil {
-			return err
+		// If previous round had 0 drivers, cancel immediately
+		if round > 0 && previousRoundNotified == 0 {
+			log.Printf("[Round %d] Previous round found 0 drivers - cancelling ride", round)
+			break
 		}
 
-		if notifiedThisRound == 0 {
-			notifiedThisRound, err = s.notifyFromRadius(ctx, lat, lon, 3, notifyBatchSize, maxFetchFromDB, triedDriverIDs)
+		notifiedThisRound := 0
+		var radiusesToTry []float64
+
+		// Start from base radius 2km, then expand if needed
+		if round == 0 {
+			// First round: start at 2km and expand if needed to reach 10
+			radiusesToTry = []float64{2, 3, 5, 10}
+		} else if previousRoundNotified >= notifyBatchSize {
+			// Previous round had full batch: expand search to new areas
+			radiusesToTry = []float64{3, 5, 10}
+		} else {
+			// Previous round had partial batch: try to fill up within same round
+			radiusesToTry = []float64{2, 3, 5, 10}
+		}
+
+		// Try each radius sequentially, accumulating drivers until we hit batch size
+		for _, radius := range radiusesToTry {
+			if notifiedThisRound >= notifyBatchSize {
+				log.Printf("[Round %d] Reached batch size of %d - stopping radius expansion", round, notifyBatchSize)
+				break // Stop if we've already notified enough drivers
+			}
+
+			needed := notifyBatchSize - notifiedThisRound
+			notified, err := s.notifyFromRadius(ctx, lat, lon, radius, needed, maxFetchFromDB, triedDriverIDs)
 			if err != nil {
-				return err
+				log.Printf("[Round %d] Radius %.0fkm: error - %v", round, radius, err)
+				continue
+			}
+
+			if notified > 0 {
+				log.Printf("[Round %d] Radius %.0fkm: notified %d drivers (needed %d, total this round: %d)", 
+					round, radius, notified, needed, notifiedThisRound+notified)
+				notifiedThisRound += notified
+			} else {
+				log.Printf("[Round %d] Radius %.0fkm: no new drivers found", round, radius)
 			}
 		}
 
-		if notifiedThisRound == 0 {
-			notifiedThisRound, err = s.notifyFromRadius(ctx, lat, lon, 5, notifyBatchSize, maxFetchFromDB, triedDriverIDs)
-			if err != nil {
-				return err
-			}
-		}
+		log.Printf("[Round %d] Final: Notified %d drivers total", round, notifiedThisRound)
+		previousRoundNotified = notifiedThisRound
 
-		if round < maxRounds-1 {
+		// If we got a full batch, wait before next round
+		if notifiedThisRound >= notifyBatchSize && round < maxRounds-1 {
+			log.Printf("[Round %d] Got full batch - waiting %v before next round...", round, roundTimeout)
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -141,6 +176,10 @@ func (s *RideService) notifyFromRadius(ctx context.Context, lat, lon, radiusKM f
 		return 0, errors.New("unable to fetch drivers")
 	}
 
+	if len(nearbyDrivers) == 0 {
+		return 0, errors.New("no drivers found in radius")
+	}
+
 	sort.Slice(nearbyDrivers, func(i, j int) bool {
 		return nearbyDrivers[i].DistanceKM < nearbyDrivers[j].DistanceKM
 	})
@@ -154,6 +193,7 @@ func (s *RideService) notifyFromRadius(ctx context.Context, lat, lon, radiusKM f
 			continue
 		}
 
+		print("round count ",driver.DriverID, " distance ", driver.DistanceKM, "\n")
 		// TODO: Replace this with actual push notification dispatch.
 		triedDriverIDs[driver.DriverID] = struct{}{}
 		notifiedCount++
